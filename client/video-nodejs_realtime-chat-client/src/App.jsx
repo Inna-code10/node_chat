@@ -4,6 +4,8 @@ import { MessageForm } from './MessageForm.jsx';
 import { MessageList } from './MessageList.jsx';
 import { RoomList } from './RoomList.jsx';
 import { UsernameForm } from './UsernameForm.jsx';
+import { TypingIndicator } from './TypingIndicator.jsx';
+import { ConnectionBanner } from './ConnectionBanner.jsx';
 import { useWebSocket } from './WebSocket.jsx';
 
 export function App() {
@@ -13,18 +15,20 @@ export function App() {
 
   const {
     isConnected,
+    error,
     rooms,
     activeRoomId,
     messages,
+    typingUsers,
     join,
     switchRoom,
     sendMessage,
+    sendTyping,
     createRoom,
     renameRoom,
     deleteRoom,
   } = useWebSocket();
 
-  // як тільки з'єднання відкрилось і є ім'я — заходимо в чат
   useEffect(() => {
     if (isConnected && username) {
       join(username, null);
@@ -42,9 +46,13 @@ export function App() {
 
   return (
     <section className="section content">
+      <ConnectionBanner isConnected={isConnected} />
+
       <h1 className="title">
         Chat application — <small>{username}</small>
       </h1>
+
+      {error && <p className="error-text">{error}</p>}
 
       <RoomList
         rooms={rooms}
@@ -56,7 +64,8 @@ export function App() {
       />
 
       <MessageList messages={messages} />
-      <MessageForm onSend={sendMessage} />
+      <TypingIndicator users={typingUsers} />
+      <MessageForm onSend={sendMessage} onTyping={sendTyping} />
     </section>
   );
 }

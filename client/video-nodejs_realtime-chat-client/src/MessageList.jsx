@@ -1,3 +1,5 @@
+import './MessageList.css';
+
 export const MessageList = ({ messages }) => (
   <ul className="message-list">
     {messages.map((message) => (

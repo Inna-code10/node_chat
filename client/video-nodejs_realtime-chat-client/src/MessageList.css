@@ -1,0 +1,23 @@
+.message-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.message-list li {
+  margin-bottom: 10px;
+}
+
+.message-list li p {
+  margin: 2px 0 0;
+}
+
+.message-list .time {
+  color: #999;
+  font-size: 12px;
+}

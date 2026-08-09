@@ -1,0 +1,37 @@
+.room-list {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.room-list ul {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.room-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.room-item span {
+  flex: 1;
+}
+
+.room-item.is-active {
+  background: #eef4ff;
+  font-weight: 600;
+}
+
+.room-item button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}

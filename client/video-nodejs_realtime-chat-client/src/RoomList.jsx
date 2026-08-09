@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import classNames from 'classnames';
+import './RoomList.css';
 
 export const RoomList = ({
   rooms,
