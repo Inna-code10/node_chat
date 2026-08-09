@@ -2,55 +2,78 @@
 
 const { WebSocketServer } = require('ws');
 const { randomUUID } = require('crypto');
+const { loadData, saveData } = require('./storage');
+const {
+  validateUsername,
+  validateMessageText,
+  validateRoomName,
+} = require('./validation');
 
 const PORT = process.env.PORT || 5000;
 const wss = new WebSocketServer({ port: PORT });
 
-// In-memory сховище кімнат: Map<roomId, { id, name, messages: [] }>
 const rooms = new Map();
+const savedData = loadData();
 
-function createRoom(name) {
+if (savedData.rooms.length > 0) {
+  savedData.rooms.forEach((room) => rooms.set(room.id, room));
+} else {
   const id = randomUUID();
-
-  rooms.set(id, { id, name, messages: [] });
-
-  return rooms.get(id);
+  rooms.set(id, { id, name: 'General', messages: [] });
 }
 
-// Стартова кімната, щоб було куди зайти одразу
-createRoom('General');
+function persist() {
+  saveData(rooms);
+}
 
 function getRoomsList() {
   return [...rooms.values()].map(({ id, name }) => ({ id, name }));
 }
 
+function getActiveUsernames() {
+  const usernames = [];
+  wss.clients.forEach((client) => {
+    if (client.username) usernames.push(client.username);
+  });
+  return usernames;
+}
+
 function broadcastToAll(data) {
   const payload = JSON.stringify(data);
-
   wss.clients.forEach((client) => {
-    if (client.readyState === client.OPEN) {
-      client.send(payload);
-    }
+    if (client.readyState === client.OPEN) client.send(payload);
   });
 }
 
-function broadcastToRoom(roomId, data) {
+function broadcastToRoom(roomId, data, exclude = null) {
   const payload = JSON.stringify(data);
-
   wss.clients.forEach((client) => {
-    if (client.readyState === client.OPEN && client.roomId === roomId) {
+    if (
+      client.readyState === client.OPEN &&
+      client.roomId === roomId &&
+      client !== exclude
+    ) {
       client.send(payload);
     }
   });
 }
 
 function sendTo(ws, data) {
-  ws.send(JSON.stringify(data));
+  if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(data));
+}
+
+function sendError(ws, message) {
+  sendTo(ws, { type: 'error', message });
 }
 
 wss.on('connection', (ws) => {
   ws.username = null;
   ws.roomId = null;
+  ws.isAlive = true;
+
+  ws.on('pong', () => {
+    ws.isAlive = true;
+  });
 
   ws.on('message', (raw) => {
     let data;
@@ -58,18 +81,28 @@ wss.on('connection', (ws) => {
     try {
       data = JSON.parse(raw);
     } catch {
-      return sendTo(ws, { type: 'error', message: 'Invalid JSON' });
+      return sendError(ws, 'Invalid JSON');
     }
 
     switch (data.type) {
       case 'join': {
+        const usernameError = validateUsername(
+          data.username,
+          getActiveUsernames(),
+        );
+
+        if (usernameError) {
+          return sendError(ws, usernameError);
+        }
+
         ws.username = data.username;
-        ws.roomId = data.roomId || getRoomsList()[0].id;
+        const targetRoom = rooms.get(data.roomId) || getRoomsList()[0];
+        ws.roomId = targetRoom.id;
 
         const room = rooms.get(ws.roomId);
 
+        sendTo(ws, { type: 'joined', username: ws.username });
         sendTo(ws, { type: 'rooms', rooms: getRoomsList() });
-
         sendTo(ws, {
           type: 'history',
           roomId: room.id,
@@ -80,13 +113,9 @@ wss.on('connection', (ws) => {
 
       case 'switch_room': {
         const room = rooms.get(data.roomId);
-
-        if (!room) {
-          return sendTo(ws, { type: 'error', message: 'Room not found' });
-        }
+        if (!room) return sendError(ws, 'Room not found');
 
         ws.roomId = room.id;
-
         sendTo(ws, {
           type: 'history',
           roomId: room.id,
@@ -96,25 +125,47 @@ wss.on('connection', (ws) => {
       }
 
       case 'message': {
-        const room = rooms.get(ws.roomId);
-
-        if (!room || !ws.username) {
-          return sendTo(ws, { type: 'error', message: 'Join a room first' });
+        if (!ws.username || !ws.roomId) {
+          return sendError(ws, 'Join a room first');
         }
+
+        const textError = validateMessageText(data.text);
+        if (textError) return sendError(ws, textError);
+
+        const room = rooms.get(ws.roomId);
+        if (!room) return sendError(ws, 'Room not found');
 
         const message = {
           author: ws.username,
-          text: data.text,
+          text: data.text.trim(),
           time: new Date().toISOString(),
         };
 
         room.messages.push(message);
+        persist();
+
         broadcastToRoom(room.id, { type: 'message', roomId: room.id, message });
         break;
       }
 
+      case 'typing': {
+        if (!ws.username || !ws.roomId) return;
+
+        broadcastToRoom(
+          ws.roomId,
+          { type: 'typing', roomId: ws.roomId, username: ws.username },
+          ws,
+        );
+        break;
+      }
+
       case 'create_room': {
-        const room = createRoom(data.name);
+        const nameError = validateRoomName(data.name);
+        if (nameError) return sendError(ws, nameError);
+
+        const id = randomUUID();
+        rooms.set(id, { id, name: data.name.trim(), messages: [] });
+        persist();
 
         broadcastToAll({ type: 'rooms', rooms: getRoomsList() });
         break;
@@ -122,32 +173,37 @@ wss.on('connection', (ws) => {
 
       case 'rename_room': {
         const room = rooms.get(data.roomId);
+        if (!room) return sendError(ws, 'Room not found');
 
-        if (!room) {
-          return sendTo(ws, { type: 'error', message: 'Room not found' });
-        }
+        const nameError = validateRoomName(data.name);
+        if (nameError) return sendError(ws, nameError);
 
-        room.name = data.name;
+        room.name = data.name.trim();
+        persist();
+
         broadcastToAll({ type: 'rooms', rooms: getRoomsList() });
         break;
       }
 
       case 'delete_room': {
+        if (!rooms.has(data.roomId)) return sendError(ws, 'Room not found');
+        if (rooms.size === 1) {
+          return sendError(ws, 'Cannot delete the last room');
+        }
+
         rooms.delete(data.roomId);
+        persist();
 
         const fallback = getRoomsList()[0];
 
         wss.clients.forEach((client) => {
           if (client.roomId === data.roomId) {
-            client.roomId = fallback ? fallback.id : null;
-
-            if (fallback) {
-              sendTo(client, {
-                type: 'history',
-                roomId: fallback.id,
-                messages: rooms.get(fallback.id).messages,
-              });
-            }
+            client.roomId = fallback.id;
+            sendTo(client, {
+              type: 'history',
+              roomId: fallback.id,
+              messages: rooms.get(fallback.id).messages,
+            });
           }
         });
 
@@ -156,9 +212,30 @@ wss.on('connection', (ws) => {
       }
 
       default:
-        sendTo(ws, { type: 'error', message: `Unknown type: ${data.type}` });
+        sendError(ws, `Unknown type: ${data.type}`);
+    }
+  });
+
+  ws.on('close', () => {
+    if (ws.username && ws.roomId) {
+      broadcastToRoom(ws.roomId, {
+        type: 'typing_stop',
+        roomId: ws.roomId,
+        username: ws.username,
+      });
     }
   });
 });
+
+const heartbeatInterval = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (!ws.isAlive) return ws.terminate();
+
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 30000);
+
+wss.on('close', () => clearInterval(heartbeatInterval));
 
 console.log(`WebSocket server is running on ws://localhost:${PORT}`);
