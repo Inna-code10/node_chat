@@ -36,21 +36,22 @@ export function App() {
   }, [isConnected, username, join]);
 
   if (!username) {
-    return (
-      <section className="section content">
-        <h1 className="title">Chat application</h1>
-        <UsernameForm onSubmit={setUsername} />
-      </section>
-    );
-  }
+  return (
+    <section className="section content">
+      <h1 className="title">RoomTalk</h1>
+      <UsernameForm onSubmit={setUsername} />
+    </section>
+  );
+}
 
   return (
     <section className="section content">
       <ConnectionBanner isConnected={isConnected} />
 
-      <h1 className="title">
-        Chat application — <small>{username}</small>
-      </h1>
+      <div className="header-row">
+        <h1 className="title">RoomTalk</h1>
+         <span className="username-badge">{username}</span>
+      </div>
 
       {error && <p className="error-text">{error}</p>}
 

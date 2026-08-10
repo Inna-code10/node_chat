@@ -1,32 +1,49 @@
 .room-list {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 12px;
+  background: var(--card);
+  border-radius: 12px;
+  padding: 16px;
   margin-bottom: 16px;
+  box-shadow: 2px 2px 0 rgba(59, 54, 44, 0.08);
 }
 
 .room-list ul {
   list-style: none;
-  margin: 0 0 8px;
+  margin: 0 0 12px;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .room-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  background: #d8cbb4;
+  color: #4a4436;
+  padding: 8px 14px;
+  border-radius: 10px 0 0 10px;
   cursor: pointer;
+  width: fit-content;
+  max-width: 85%;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.room-item:hover {
+  transform: translateX(4px);
 }
 
 .room-item span {
+  font-size: 14px;
+  font-weight: 500;
   flex: 1;
 }
 
 .room-item.is-active {
-  background: #eef4ff;
-  font-weight: 600;
+  background: var(--teal);
+  color: var(--gold);
+  transform: translateX(8px);
+  box-shadow: 2px 2px 0 rgba(59, 54, 44, 0.15);
 }
 
 .room-item button {
@@ -34,4 +51,47 @@
   border: none;
   cursor: pointer;
   font-size: 14px;
+  opacity: 0.7;
+  padding: 2px;
+}
+
+.room-item button:hover {
+  opacity: 1;
+}
+
+.room-list form {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.room-list form input {
+  flex: 1;
+  border: 1px dashed #b8a888;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--input-bg);
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.room-list form input:focus {
+  outline: none;
+  border-color: var(--teal);
+  border-style: solid;
+}
+
+.room-list form .button {
+  background: var(--gold);
+  color: #4a3410;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.room-list form .button:hover {
+  background: #d9a839;
 }
