@@ -20,4 +20,6 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
     - run: npm install
+      working-directory: server/node_chat
     - run: npm test
+      working-directory: server/node_chat
