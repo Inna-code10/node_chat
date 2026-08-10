@@ -238,4 +238,4 @@ const heartbeatInterval = setInterval(() => {
 
 wss.on('close', () => clearInterval(heartbeatInterval));
 
-console.log(`WebSocket server is running on ws://localhost:${PORT}`);
+process.stdout.write(`WebSocket server is running on ws://localhost:${PORT}\n`);
